@@ -74,36 +74,42 @@ class LiteRtLmEngine {
                 seed = 0
             )
 
-            val conversation = eng.createConversation(
-                ConversationConfig(
-                    samplerConfig = samplerConfig
-                )
-            )
-
             val cleanPath = if (imagePath.startsWith("file://")) {
                 imagePath.removePrefix("file://")
             } else {
                 imagePath
             }
 
-            val message = Message.of(
-                Content.ImageFile(cleanPath),
-                Content.Text(prompt)
+            Log.i(TAG, "Creating conversation for image: $cleanPath")
+            val conversation = eng.createConversation(
+                ConversationConfig(
+                    samplerConfig = samplerConfig
+                )
             )
 
-            val fullResponse = StringBuilder()
+            try {
+                val message = Message.of(
+                    Content.ImageFile(cleanPath),
+                    Content.Text(prompt)
+                )
 
-            withContext(Dispatchers.IO) {
-                conversation.sendMessageAsync(message)
-                    .collect { msg ->
-                        val text = msg.toString()
-                        fullResponse.append(text)
-                        onPartialResponse?.invoke(text)
-                    }
+                val fullResponse = StringBuilder()
+
+                withContext(Dispatchers.IO) {
+                    conversation.sendMessageAsync(message)
+                        .collect { msg ->
+                            val text = msg.toString()
+                            fullResponse.append(text)
+                            onPartialResponse?.invoke(text)
+                        }
+                }
+
+                Log.i(TAG, "Inference complete, response length: ${fullResponse.length}")
+                fullResponse.toString()
+            } finally {
+                conversation.close()
+                Log.i(TAG, "Conversation closed")
             }
-
-            conversation.close()
-            fullResponse.toString()
         }
     }
 

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiteRtLm } from '../../modules/litert-lm';
 
 import { prepareImageForInference } from '../../utils/image';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   findInstalledModel,
   importModelFromDevice,
@@ -90,12 +91,13 @@ export default function ScannerScreen() {
   async function takePictureAndAnalyze() {
     if (!cameraRef.current || isAnalyzing || !modelLoaded || !model) return;
 
+    let compressedUri: string | null = null;
     try {
       // Capture photo BEFORE unmounting camera
       const photo = await cameraRef.current.takePictureAsync();
       if (!photo) throw new Error("Did not capture photo");
 
-      const compressedUri = await prepareImageForInference(photo.uri);
+      compressedUri = await prepareImageForInference(photo.uri);
 
       // Now switch to processing screen (camera off)
       setIsAnalyzing(true);
@@ -123,6 +125,10 @@ export default function ScannerScreen() {
       alert("Analysis failed. Ensure the model is loaded and try again.");
     } finally {
       setIsAnalyzing(false);
+      // Clean up temp compressed image to prevent memory leak
+      if (compressedUri) {
+        FileSystem.deleteAsync(compressedUri, { idempotent: true }).catch(() => {});
+      }
     }
   }
 
