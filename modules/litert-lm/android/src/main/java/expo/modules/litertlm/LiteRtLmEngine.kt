@@ -39,11 +39,14 @@ class LiteRtLmEngine {
             }
             Log.i(TAG, "Model file found: ${file.length() / 1_000_000} MB at $cleanPath")
 
-            Log.i(TAG, "Creating EngineConfig with GPU backend...")
+            // Use cacheDir for memory-mapped weight loading (reduces RAM usage)
+            val cacheDir = File(cleanPath).parent ?: "/data/local/tmp"
+            Log.i(TAG, "Creating EngineConfig with CPU backend, cacheDir=$cacheDir")
             val config = EngineConfig(
                 modelPath = cleanPath,
-                backend = Backend.GPU(),
-                visionBackend = Backend.GPU()
+                backend = Backend.CPU(),
+                visionBackend = Backend.CPU(),
+                cacheDir = cacheDir
             )
 
             Log.i(TAG, "Creating Engine instance...")
