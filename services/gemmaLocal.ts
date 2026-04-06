@@ -62,14 +62,16 @@ export const checkModelExists = async (): Promise<boolean> => {
 
 /**
  * Opens a document picker so the user can select the .litertlm model file.
- * The file is copied from the picker's cache into the app's documents directory.
+ * Uses copyToCacheDirectory: false to avoid a blocking main-thread copy of the
+ * 3.65GB file (which causes ANR). Instead we get a content:// URI and use
+ * FileSystem.copyAsync which runs on a background thread.
  * Returns true if the model was successfully imported.
  */
 export const importModelFromDevice = async (): Promise<boolean> => {
   try {
     const result = await DocumentPicker.getDocumentAsync({
-      type: 'application/octet-stream',
-      copyToCacheDirectory: true,
+      type: '*/*',
+      copyToCacheDirectory: false,
     });
 
     if (result.canceled || !result.assets?.length) {
