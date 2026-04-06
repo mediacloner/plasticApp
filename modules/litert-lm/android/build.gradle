@@ -21,11 +21,12 @@ android {
 
   kotlinOptions {
     jvmTarget = '17'
+    freeCompilerArgs += ['-Xskip-metadata-version-check']
   }
 }
 
 dependencies {
   implementation project(':expo-modules-core')
-  implementation 'com.google.ai.edge.litertlm:litertlm-android:0.8.0'
+  implementation 'com.google.ai.edge.litertlm:litertlm-android:0.10.0'
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 }

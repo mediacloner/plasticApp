@@ -1,5 +1,6 @@
 package expo.modules.litertlm
 
+import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
@@ -8,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+
+private const val TAG = "LiteRtLmModule"
 
 class LiteRtLmModule : Module() {
     private val engine = LiteRtLmEngine()
@@ -19,11 +22,14 @@ class LiteRtLmModule : Module() {
         Events("onPartialResponse")
 
         AsyncFunction("initialize") { modelPath: String, promise: Promise ->
+            Log.i(TAG, "initialize() called with path: $modelPath")
             scope.launch {
                 try {
                     engine.initialize(modelPath)
+                    Log.i(TAG, "initialize() resolved successfully")
                     promise.resolve(null)
                 } catch (e: Exception) {
+                    Log.e(TAG, "initialize() failed", e)
                     promise.reject("ERR_INIT", e.message ?: "Failed to initialize engine", e)
                 }
             }

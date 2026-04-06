@@ -1,7 +1,9 @@
 package expo.modules.litertlm
 
+import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -14,6 +16,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private const val TAG = "LiteRtLmEngine"
+
 class LiteRtLmEngine {
     private var engine: Engine? = null
     private val mutex = Mutex()
@@ -23,19 +27,31 @@ class LiteRtLmEngine {
 
     suspend fun initialize(modelPath: String) {
         withContext(Dispatchers.IO) {
-            val file = File(modelPath)
-            if (!file.exists()) {
-                throw Exception("Model file not found at: $modelPath")
+            val cleanPath = if (modelPath.startsWith("file://")) {
+                modelPath.removePrefix("file://")
+            } else {
+                modelPath
             }
 
+            val file = File(cleanPath)
+            if (!file.exists()) {
+                throw Exception("Model file not found at: $cleanPath")
+            }
+            Log.i(TAG, "Model file found: ${file.length() / 1_000_000} MB at $cleanPath")
+
+            Log.i(TAG, "Creating EngineConfig with GPU backend...")
             val config = EngineConfig(
-                modelPath = modelPath,
-                backend = Backend.GPU,
-                visionBackend = Backend.GPU
+                modelPath = cleanPath,
+                backend = Backend.GPU(),
+                visionBackend = Backend.GPU()
             )
 
+            Log.i(TAG, "Creating Engine instance...")
             val eng = Engine(config)
+
+            Log.i(TAG, "Calling engine.initialize() — this may take a few minutes on first load...")
             eng.initialize()
+            Log.i(TAG, "Engine initialized successfully!")
             engine = eng
         }
     }
@@ -61,14 +77,12 @@ class LiteRtLmEngine {
                 )
             )
 
-            // Strip file:// prefix that React Native URIs use
             val cleanPath = if (imagePath.startsWith("file://")) {
                 imagePath.removePrefix("file://")
             } else {
                 imagePath
             }
 
-            // Build multimodal message: image + text
             val message = Message.of(
                 Content.ImageFile(cleanPath),
                 Content.Text(prompt)
