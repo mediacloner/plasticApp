@@ -47,12 +47,14 @@ const responseText = await analyzeImage(imageUri, prompt);
 
 Download `gemma-4-E4B-it.litertlm` from [HuggingFace](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (requires Gemma license acceptance).
 
-Rename and push to the device's Download folder:
+Rename and push to the device's Download folder (no root required):
 ```bash
 adb push gemma-4-E4B-it.litertlm /sdcard/Download/gemma4-e4b.litertlm
 ```
 
 On the next app launch, the model is automatically detected in `/sdcard/Download/` and copied into the app's private documents directory. This avoids `Permission denied` errors from trying to write directly to `/data/data/...`.
+
+> **Note:** Do NOT use `adb push` to `/data/data/...` or `adb shell run-as ... cp` — both require root or fail due to sandbox restrictions. The `/sdcard/Download/` approach works on all devices.
 
 The auto-copy logic lives in `services/gemmaLocal.ts` (`checkModelExists`). The lookup order is:
 1. App documents dir (`FileSystem.documentDirectory + 'gemma4-e4b.litertlm'`) — used directly if found
@@ -93,6 +95,10 @@ LiteRT-LM requires Android API 26+. The Expo default is 24. If builds fail with 
 Tested with `.litertlm` format models from:
 - [litert-community/gemma-4-E4B-it-litert-lm](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (3.65 GB, multimodal)
 
+## SDK version compatibility
+
+The module pins `litertlm-android:0.8.0` to stay compatible with the Kotlin version shipped by Expo 54 / React Native 0.81 (Kotlin 2.1.20). Newer LiteRT-LM versions (0.10.0+) require Kotlin 2.3+ and will fail with metadata version errors.
+
 ## Troubleshooting
 
 **Gradle can't resolve `com.google.ai.edge.litertlm:litertlm-android`:**
@@ -102,6 +108,13 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.aar'])
 }
 ```
+
+**minSdkVersion mismatch:**
+LiteRT-LM requires API 26+. The `expo-build-properties` plugin in `app.json` sets this. After adding or changing the plugin, regenerate the android project:
+```bash
+npx expo prebuild --platform android --clean
+```
+Then re-apply `expo.useLegacyPackaging=true` in `android/gradle.properties`.
 
 **Engine initialization takes long:**
 First load optimizes weights for the device's GPU. Subsequent loads use a cached version and are faster.

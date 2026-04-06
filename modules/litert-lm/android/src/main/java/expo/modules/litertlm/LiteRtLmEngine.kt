@@ -1,15 +1,14 @@
 package expo.modules.litertlm
 
-import com.google.ai.edge.litertlm.Engine
-import com.google.ai.edge.litertlm.EngineConfig
-import com.google.ai.edge.litertlm.Conversation
-import com.google.ai.edge.litertlm.ConversationConfig
-import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
-import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.SamplerConfig
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -31,8 +30,8 @@ class LiteRtLmEngine {
 
             val config = EngineConfig(
                 modelPath = modelPath,
-                backend = Backend.GPU(),
-                visionBackend = Backend.GPU()
+                backend = Backend.GPU,
+                visionBackend = Backend.GPU
             )
 
             val eng = Engine(config)
@@ -49,14 +48,16 @@ class LiteRtLmEngine {
         return mutex.withLock {
             val eng = engine ?: throw Exception("Engine not initialized")
 
+            val samplerConfig = SamplerConfig(
+                topK = 32,
+                topP = 0.95,
+                temperature = 0.4,
+                seed = 0
+            )
+
             val conversation = eng.createConversation(
                 ConversationConfig(
-                    samplerConfig = SamplerConfig(
-                        temperature = 0.4f,
-                        topK = 32,
-                        topP = 0.95f
-                    ),
-                    maxTokens = 1024
+                    samplerConfig = samplerConfig
                 )
             )
 
@@ -67,22 +68,24 @@ class LiteRtLmEngine {
                 imagePath
             }
 
+            // Build multimodal message: image + text
+            val message = Message.of(
+                Content.ImageFile(cleanPath),
+                Content.Text(prompt)
+            )
+
             val fullResponse = StringBuilder()
 
             withContext(Dispatchers.IO) {
-                conversation.sendMessageAsync(
-                    Contents.of(
-                        Content.ImageFile(cleanPath),
-                        Content.Text(prompt)
-                    )
-                )
-                .catch { e -> throw Exception("Inference failed: ${e.message}") }
-                .collect { message ->
-                    fullResponse.append(message.text)
-                    onPartialResponse?.invoke(message.text)
-                }
+                conversation.sendMessageAsync(message)
+                    .collect { msg ->
+                        val text = msg.toString()
+                        fullResponse.append(text)
+                        onPartialResponse?.invoke(text)
+                    }
             }
 
+            conversation.close()
             fullResponse.toString()
         }
     }

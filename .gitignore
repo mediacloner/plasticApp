@@ -36,6 +36,9 @@ yarn-error.*
 # Claude Code
 .claude/
 
+# Native module build artifacts
+modules/*/android/build/
+
 # typescript
 *.tsbuildinfo
 
