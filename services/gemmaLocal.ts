@@ -2,7 +2,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
 import { FruitAnalysisResult } from './types';
 
-// The system prompt as requested in the proposal
 export const SYSTEM_PROMPT = `You are a fruit quality inspection system.
 Analyze the provided image of a fruit and return a JSON assessment.
 
@@ -30,75 +29,102 @@ Return ONLY valid JSON with this structure:
   "confidence": "number 0-1"
 }`;
 
-export const MODEL_FILENAME = 'gemma4-e4b.litertlm';
-
-export const getModelPath = () => {
-    if (!FileSystem.documentDirectory) {
-        throw new Error("FileSystem.documentDirectory is null! Native module hasn't loaded.");
-    }
-    return FileSystem.documentDirectory + MODEL_FILENAME;
-};
+export interface InstalledModel {
+  filename: string;
+  path: string;
+  displayName: string;
+  sizeMB: number;
+}
 
 /**
- * Checks if the Gemma 4 model file exists in the app's documents directory.
+ * Scans the app documents directory for any .litertlm model file.
+ * Returns info about the first one found, or null if none installed.
  */
-export const checkModelExists = async (): Promise<boolean> => {
+export const findInstalledModel = async (): Promise<InstalledModel | null> => {
   try {
-    const appPath = getModelPath();
-    const appFileInfo = await FileSystem.getInfoAsync(appPath);
+    const docDir = FileSystem.documentDirectory;
+    if (!docDir) return null;
 
-    if (appFileInfo.exists) {
-      console.log("Model found at", appPath);
-      return true;
-    }
+    const files = await FileSystem.readDirectoryAsync(docDir);
+    const modelFile = files.find(f => f.endsWith('.litertlm'));
 
-    console.log("Model not found at", appPath);
-    return false;
+    if (!modelFile) return null;
+
+    const path = docDir + modelFile;
+    const info = await FileSystem.getInfoAsync(path);
+    const sizeMB = info.exists && 'size' in info ? Math.round((info.size ?? 0) / 1_000_000) : 0;
+
+    // Derive display name: "gemma-4-E4B-it.litertlm" -> "Gemma 4 E4B"
+    const displayName = modelFile
+      .replace('.litertlm', '')
+      .replace(/-it$/i, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/gemma\s*(\d)/i, 'Gemma $1')
+      .replace(/\b(e\d+b)\b/i, (m) => m.toUpperCase());
+
+    return { filename: modelFile, path, displayName, sizeMB };
   } catch (err) {
-    console.error("Failed to check Gemma 4 model", err);
-    return false;
+    console.error("Failed to scan for models", err);
+    return null;
   }
 };
 
 /**
- * Opens a document picker so the user can select the .litertlm model file.
- * Uses copyToCacheDirectory: false to avoid a blocking main-thread copy of the
- * 3.65GB file (which causes ANR). Instead we get a content:// URI and use
- * FileSystem.copyAsync which runs on a background thread.
- * Returns true if the model was successfully imported.
+ * Opens a document picker to import a .litertlm model file.
+ * Deletes any existing model first, then copies the new one.
+ * Returns the installed model info or null if cancelled.
  */
-export const importModelFromDevice = async (): Promise<boolean> => {
+export const importModelFromDevice = async (): Promise<InstalledModel | null> => {
   try {
     const result = await DocumentPicker.getDocumentAsync({
       type: '*/*',
       copyToCacheDirectory: false,
     });
 
-    if (result.canceled || !result.assets?.length) {
-      return false;
-    }
+    if (result.canceled || !result.assets?.length) return null;
 
     const pickedFile = result.assets[0];
-    const destPath = getModelPath();
+    const filename = pickedFile.name || 'model.litertlm';
 
-    console.log(`Copying model from ${pickedFile.uri} to ${destPath}...`);
-    await FileSystem.copyAsync({
-      from: pickedFile.uri,
-      to: destPath,
-    });
-    console.log("Model imported successfully to", destPath);
-    return true;
+    // Delete any existing model first
+    await deleteInstalledModel();
+
+    const docDir = FileSystem.documentDirectory;
+    if (!docDir) throw new Error("documentDirectory is null");
+
+    const destPath = docDir + filename;
+
+    console.log(`Importing model: ${filename} -> ${destPath}`);
+    await FileSystem.copyAsync({ from: pickedFile.uri, to: destPath });
+    console.log("Model imported successfully");
+
+    return findInstalledModel();
   } catch (err) {
     console.error("Failed to import model", err);
-    return false;
+    return null;
   }
 };
 
 /**
- * Helper to parse the raw text output from the LLM into our JSON typescript object
+ * Deletes the currently installed model file.
  */
+export const deleteInstalledModel = async (): Promise<void> => {
+  const model = await findInstalledModel();
+  if (model) {
+    await FileSystem.deleteAsync(model.path, { idempotent: true });
+    console.log("Deleted model:", model.filename);
+  }
+};
+
+/**
+ * Extracts a short model name for display (e.g. "E4B", "E2B").
+ */
+export const getModelShortName = (filename: string): string => {
+  const match = filename.match(/e\d+b/i);
+  return match ? match[0].toUpperCase() : filename.replace('.litertlm', '');
+};
+
 export const parseLlmResponse = (responseText: string): FruitAnalysisResult => {
-    // We strip any markdown formatting Gemma might inject around the JSON block
-    const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJsonStr);
+  const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+  return JSON.parse(cleanJsonStr);
 };

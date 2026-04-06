@@ -20,6 +20,8 @@ export interface ScanRecord {
   score: number;
   confidence: number;
   image_uri: string;
-  analysis_json: string; // The raw JSON string returned by Gemma
-  scanned_at: string; // ISO date string
+  analysis_json: string;
+  scanned_at: string;
+  model_name: string;
+  processing_time_ms: number;
 }

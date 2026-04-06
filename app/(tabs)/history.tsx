@@ -30,7 +30,13 @@ export default function HistoryScreen() {
         onPress={() => {
            router.push({
              pathname: '/result',
-             params: { result: item.analysis_json, imageUri: item.image_uri, isHistory: 'true' }
+             params: {
+               result: item.analysis_json,
+               imageUri: item.image_uri,
+               isHistory: 'true',
+               modelName: item.model_name || '',
+               processingTime: String(item.processing_time_ms || 0),
+             }
            });
         }}
       >
@@ -44,6 +50,12 @@ export default function HistoryScreen() {
               <Text style={styles.badgeText}>{item.status}</Text>
             </View>
             <Text style={styles.scoreText}>{item.score}/10</Text>
+            {!!item.model_name && (
+              <Text style={styles.metaText}>{item.model_name}</Text>
+            )}
+            {!!item.processing_time_ms && (
+              <Text style={styles.metaText}>{Math.round(item.processing_time_ms / 1000)}s</Text>
+            )}
           </View>
         </View>
 
@@ -148,6 +160,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#3A3A3C',
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
   },
   chevron: {
     fontSize: 24,

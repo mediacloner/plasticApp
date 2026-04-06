@@ -4,7 +4,6 @@ import LiteRtLmModule from './LiteRtLmModule';
 
 const emitter = new EventEmitter(LiteRtLmModule);
 
-// Expected ~300 tokens for the fruit analysis JSON response
 const EXPECTED_TOKENS = 300;
 
 export function useLiteRtLm(modelPath: string | null) {
@@ -13,8 +12,17 @@ export function useLiteRtLm(modelPath: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const tokenCountRef = useRef(0);
+  const currentPathRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Reset when model path changes (hot-swap)
+    if (currentPathRef.current !== modelPath) {
+      setIsLoaded(false);
+      setError(null);
+      setProgress(0);
+      currentPathRef.current = modelPath;
+    }
+
     if (!modelPath) return;
     let cancelled = false;
 

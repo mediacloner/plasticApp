@@ -5,7 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FruitAnalysisResult } from '../services/types';
 
 export default function ResultScreen() {
-  const { result, imageUri, isHistory } = useLocalSearchParams<{result: string, imageUri: string, isHistory: string}>();
+  const { result, imageUri, isHistory, modelName, processingTime } = useLocalSearchParams<{
+    result: string;
+    imageUri: string;
+    isHistory: string;
+    modelName: string;
+    processingTime: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -41,6 +47,18 @@ export default function ResultScreen() {
               <Text style={styles.scoreLabel}>/10</Text>
               <View style={styles.metricDivider} />
               <Text style={styles.confidenceText}>{(analysis.confidence * 100).toFixed(0)}% confidence</Text>
+              {!!modelName && (
+                <>
+                  <View style={styles.metricDivider} />
+                  <Text style={styles.confidenceText}>{modelName}</Text>
+                </>
+              )}
+              {!!processingTime && Number(processingTime) > 0 && (
+                <>
+                  <View style={styles.metricDivider} />
+                  <Text style={styles.confidenceText}>{Math.round(Number(processingTime) / 1000)}s</Text>
+                </>
+              )}
             </View>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>

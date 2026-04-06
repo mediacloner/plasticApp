@@ -1,45 +1,74 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiteRtLm } from '../../modules/litert-lm';
 
 import { prepareImageForInference } from '../../utils/image';
 import {
-  checkModelExists,
+  findInstalledModel,
   importModelFromDevice,
+  deleteInstalledModel,
+  getModelShortName,
   parseLlmResponse,
-  getModelPath,
-  SYSTEM_PROMPT
+  SYSTEM_PROMPT,
+  type InstalledModel,
 } from '../../services/gemmaLocal';
 import { insertScan, initDB } from '../../services/database';
 
-export default function App() {
+export default function ScannerScreen() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasDownloadedModel, setHasDownloadedModel] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [model, setModel] = useState<InstalledModel | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // LiteRT-LM native module for Gemma 4 on-device inference
-  const { analyzeImage, isLoaded: modelLoaded, progress } = useLiteRtLm(
-    hasDownloadedModel ? getModelPath() : null
+  const { analyzeImage, isLoaded: modelLoaded, isInitializing, progress } = useLiteRtLm(
+    model?.path ?? null
   );
 
   useEffect(() => {
     initDB().catch(console.error);
-    checkModelExists().then((exists) => {
-      if (exists) setHasDownloadedModel(true);
-    }).catch(console.error);
+    findInstalledModel().then(setModel).catch(console.error);
   }, []);
 
-  if (!permission) {
-    return <View style={styles.container} />;
-  }
+  const handleImportModel = useCallback(async () => {
+    setIsImporting(true);
+    try {
+      const imported = await importModelFromDevice();
+      if (imported) setModel(imported);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsImporting(false);
+    }
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    const modelName = model ? model.displayName : 'None';
+    const modelSize = model ? `${model.sizeMB} MB` : '';
+
+    Alert.alert(
+      'Model Settings',
+      model
+        ? `Current: ${modelName}\nSize: ${modelSize}`
+        : 'No model installed',
+      [
+        { text: 'Import New Model', onPress: handleImportModel },
+        ...(model ? [{ text: 'Delete Model', style: 'destructive' as const, onPress: async () => {
+          await deleteInstalledModel();
+          setModel(null);
+        }}] : []),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
+  }, [model, handleImportModel]);
+
+  if (!permission) return <View style={styles.container} />;
 
   if (!permission.granted) {
     return (
@@ -58,24 +87,8 @@ export default function App() {
     );
   }
 
-  async function handleImportModel() {
-    setIsImporting(true);
-    try {
-      const success = await importModelFromDevice();
-      if (success) setHasDownloadedModel(true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsImporting(false);
-    }
-  }
-
-  function toggleCameraFacing() {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
-  }
-
   async function takePictureAndAnalyze() {
-    if (!cameraRef.current || isAnalyzing || !modelLoaded) return;
+    if (!cameraRef.current || isAnalyzing || !modelLoaded || !model) return;
 
     try {
       setIsAnalyzing(true);
@@ -83,13 +96,24 @@ export default function App() {
       if (!photo) throw new Error("Did not capture photo");
 
       const compressedUri = await prepareImageForInference(photo.uri);
+
+      const startTime = Date.now();
       const responseText = await analyzeImage(compressedUri, SYSTEM_PROMPT);
+      const processingTimeMs = Date.now() - startTime;
+
       const result = parseLlmResponse(responseText);
-      await insertScan(photo.uri, result);
+      const modelName = getModelShortName(model.filename);
+
+      await insertScan(photo.uri, result, modelName, processingTimeMs);
 
       router.push({
         pathname: '/result',
-        params: { result: JSON.stringify(result), imageUri: photo.uri }
+        params: {
+          result: JSON.stringify(result),
+          imageUri: photo.uri,
+          modelName,
+          processingTime: String(processingTimeMs),
+        }
       });
     } catch (error) {
       console.error(error);
@@ -99,13 +123,38 @@ export default function App() {
     }
   }
 
-  const modelReady = hasDownloadedModel && modelLoaded;
+  const modelReady = !!model && modelLoaded;
+  const shortName = model ? getModelShortName(model.filename) : '';
+
+  // Processing screen (camera off)
+  if (isAnalyzing) {
+    return (
+      <View style={styles.processingContainer}>
+        <View style={styles.processingContent}>
+          <Text style={styles.processingEmoji}>🍎</Text>
+          <Text style={styles.processingTitle}>Analyzing Fruit...</Text>
+          <Text style={styles.processingSubtitle}>Model: {shortName}</Text>
+
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+          </View>
+
+          <Text style={styles.processingHint}>
+            Camera is off to free memory for the model
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
 
-      {/* Scanning frame overlay */}
+      {/* Scanning frame */}
       <View style={styles.overlay}>
         <View style={styles.scanFrame}>
           <View style={[styles.corner, styles.cornerTL]} />
@@ -115,66 +164,62 @@ export default function App() {
         </View>
       </View>
 
-      {/* Top status bar */}
+      {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-        {!hasDownloadedModel && (
-          <TouchableOpacity
-            style={styles.importButton}
-            onPress={handleImportModel}
-            disabled={isImporting}
-          >
-            {isImporting ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Text style={styles.importText}>Import Gemma 4 Model</Text>
+        <View style={styles.topBarRow}>
+          {/* Status pill */}
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            {!model && !isImporting && (
+              <TouchableOpacity style={styles.importButton} onPress={handleImportModel}>
+                <Text style={styles.importText}>Import Model</Text>
+              </TouchableOpacity>
             )}
+            {isImporting && (
+              <View style={styles.statusPill}>
+                <ActivityIndicator size="small" color="#FFF" />
+                <Text style={styles.statusText}>Importing...</Text>
+              </View>
+            )}
+            {model && isInitializing && (
+              <View style={styles.statusPill}>
+                <ActivityIndicator size="small" color="#FFF" />
+                <Text style={styles.statusText}>Loading {shortName}...</Text>
+              </View>
+            )}
+            {modelReady && (
+              <View style={[styles.statusPill, styles.statusReady]}>
+                <View style={styles.readyDot} />
+                <Text style={styles.statusText}>{shortName} Ready</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Settings gear */}
+          <TouchableOpacity style={styles.gearButton} onPress={handleOpenSettings}>
+            <Text style={styles.gearIcon}>⚙</Text>
           </TouchableOpacity>
-        )}
-        {hasDownloadedModel && !modelLoaded && (
-          <View style={styles.statusPill}>
-            <ActivityIndicator size="small" color="#FFF" />
-            <Text style={styles.statusText}>Initializing Gemma 4...</Text>
-          </View>
-        )}
-        {modelReady && (
-          <View style={[styles.statusPill, styles.statusReady]}>
-            <View style={styles.readyDot} />
-            <Text style={styles.statusText}>Model Ready</Text>
-          </View>
-        )}
+        </View>
       </View>
 
       {/* Bottom controls */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={styles.sideButton} onPress={toggleCameraFacing}>
+        <TouchableOpacity
+          style={styles.sideButton}
+          onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
+        >
           <Text style={styles.sideButtonIcon}>↻</Text>
         </TouchableOpacity>
 
-        <View style={styles.captureArea}>
-          {isAnalyzing && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
-              </View>
-              <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.captureButton,
-              !modelReady && styles.captureDisabled,
-              isAnalyzing && styles.captureAnalyzing,
-            ]}
-            onPress={takePictureAndAnalyze}
-            disabled={isAnalyzing || !modelReady}
-          >
-            {isAnalyzing ? (
-              <ActivityIndicator size="large" color="#fff" />
-            ) : (
-              <View style={styles.captureInner} />
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.captureButton,
+            !modelReady && styles.captureDisabled,
+          ]}
+          onPress={takePictureAndAnalyze}
+          disabled={!modelReady}
+        >
+          <View style={[styles.captureInner, !modelReady && styles.captureInnerDisabled]} />
+        </TouchableOpacity>
 
         <View style={styles.sideButton} />
       </View>
@@ -186,7 +231,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
 
-  // Permission screen
+  // Permission
   permissionContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32 },
   permissionCard: { backgroundColor: '#1C1C1E', borderRadius: 24, padding: 32, alignItems: 'center', width: '100%' },
   permissionIcon: { fontSize: 48, marginBottom: 16 },
@@ -205,10 +250,11 @@ const styles = StyleSheet.create({
   cornerBR: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 12 },
 
   // Top bar
-  topBar: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 20 },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16 },
+  topBarRow: { flexDirection: 'row', alignItems: 'center' },
   importButton: {
-    backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 24,
-    borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 20,
+    borderRadius: 20, flexDirection: 'row', alignItems: 'center',
   },
   importText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
   statusPill: {
@@ -218,6 +264,11 @@ const styles = StyleSheet.create({
   statusReady: { backgroundColor: 'rgba(52,199,89,0.25)' },
   statusText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   readyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
+  gearButton: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gearIcon: { fontSize: 20, color: '#FFF' },
 
   // Bottom bar
   bottomBar: {
@@ -230,24 +281,27 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   sideButtonIcon: { fontSize: 24, color: '#FFF', fontWeight: '300' },
-  captureArea: { alignItems: 'center' },
-  progressContainer: { alignItems: 'center', marginBottom: 12 },
-  progressBarBg: {
-    width: 120, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%', borderRadius: 3, backgroundColor: '#34C759',
-  },
-  progressText: { color: '#FFF', fontSize: 13, fontWeight: '600', marginTop: 4 },
   captureButton: {
     width: 80, height: 80, borderRadius: 40, borderWidth: 4,
     borderColor: '#FFF', alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'transparent',
   },
-  captureInner: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF',
-  },
+  captureInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF' },
   captureDisabled: { borderColor: 'rgba(255,255,255,0.3)' },
-  captureAnalyzing: { borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.15)' },
+  captureInnerDisabled: { backgroundColor: 'rgba(255,255,255,0.3)' },
+
+  // Processing screen
+  processingContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  processingContent: { alignItems: 'center', paddingHorizontal: 40 },
+  processingEmoji: { fontSize: 64, marginBottom: 24 },
+  processingTitle: { fontSize: 24, fontWeight: '700', color: '#FFF', marginBottom: 8 },
+  processingSubtitle: { fontSize: 16, color: '#8E8E93', marginBottom: 32 },
+  progressContainer: { alignItems: 'center', width: '100%' },
+  progressBarBg: {
+    width: 200, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  progressBarFill: { height: '100%', borderRadius: 4, backgroundColor: '#34C759' },
+  progressText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
+  processingHint: { color: '#555', fontSize: 13, marginTop: 32, textAlign: 'center' },
 });

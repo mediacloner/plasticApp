@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { FruitAnalysisResult, ScanRecord, FruitStatus } from './types';
+import { FruitAnalysisResult, ScanRecord } from './types';
 
 const DB_NAME = 'fruitinspector.db';
 
@@ -25,27 +25,33 @@ export const initDB = async (): Promise<void> => {
       confidence REAL NOT NULL,
       image_uri TEXT NOT NULL,
       analysis_json TEXT NOT NULL,
-      scanned_at DATETIME NOT NULL
+      scanned_at DATETIME NOT NULL,
+      model_name TEXT NOT NULL DEFAULT '',
+      processing_time_ms INTEGER NOT NULL DEFAULT 0
     );
   `);
 };
 
 export const insertScan = async (
   imageUri: string,
-  analysis: FruitAnalysisResult
+  analysis: FruitAnalysisResult,
+  modelName: string,
+  processingTimeMs: number
 ): Promise<number> => {
   const database = getDb();
 
   const result = await database.runAsync(
-    `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at, model_name, processing_time_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     analysis.fruit,
     analysis.status,
     analysis.score,
     analysis.confidence,
     imageUri,
     JSON.stringify(analysis),
-    new Date().toISOString()
+    new Date().toISOString(),
+    modelName,
+    processingTimeMs
   );
 
   return result.lastInsertRowId;

@@ -21,6 +21,7 @@ const MAPPING = {
   'camera.fill': 'camera-alt',
   'list.bullet': 'list',
   'info.circle.fill': 'info',
+  'gearshape.fill': 'settings',
 } as IconMapping;
 
 /**
