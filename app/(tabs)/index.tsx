@@ -91,11 +91,14 @@ export default function ScannerScreen() {
     if (!cameraRef.current || isAnalyzing || !modelLoaded || !model) return;
 
     try {
-      setIsAnalyzing(true);
+      // Capture photo BEFORE unmounting camera
       const photo = await cameraRef.current.takePictureAsync();
       if (!photo) throw new Error("Did not capture photo");
 
       const compressedUri = await prepareImageForInference(photo.uri);
+
+      // Now switch to processing screen (camera off)
+      setIsAnalyzing(true);
 
       const startTime = Date.now();
       const responseText = await analyzeImage(compressedUri, SYSTEM_PROMPT);
