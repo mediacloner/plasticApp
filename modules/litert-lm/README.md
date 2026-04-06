@@ -47,10 +47,18 @@ const responseText = await analyzeImage(imageUri, prompt);
 
 Download `gemma-4-E4B-it.litertlm` from [HuggingFace](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (requires Gemma license acceptance).
 
-Push to device for development:
+Rename and push to the device's Download folder:
 ```bash
-adb push gemma-4-E4B-it.litertlm /data/data/mediacloner.fruitApp/files/gemma4-e4b.litertlm
+adb push gemma-4-E4B-it.litertlm /sdcard/Download/gemma4-e4b.litertlm
 ```
+
+On the next app launch, the model is automatically detected in `/sdcard/Download/` and copied into the app's private documents directory. This avoids `Permission denied` errors from trying to write directly to `/data/data/...`.
+
+The auto-copy logic lives in `services/gemmaLocal.ts` (`checkModelExists`). The lookup order is:
+1. App documents dir (`FileSystem.documentDirectory + 'gemma4-e4b.litertlm'`) — used directly if found
+2. `/sdcard/Download/gemma4-e4b.litertlm` — copied to app documents dir, then used
+
+Once copied, the sideloaded file in `/sdcard/Download/` can be deleted to free storage.
 
 ### 2. Android build config
 
