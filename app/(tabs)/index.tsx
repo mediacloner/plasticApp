@@ -1,7 +1,8 @@
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useState, useRef, useEffect } from 'react';
-import { Button, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLiteRtLm } from '../../modules/litert-lm';
 
 import { prepareImageForInference } from '../../utils/image';
@@ -22,6 +23,7 @@ export default function App() {
   const [isImporting, setIsImporting] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // LiteRT-LM native module for Gemma 4 on-device inference
   const { analyzeImage, isLoaded: modelLoaded } = useLiteRtLm(
@@ -29,24 +31,29 @@ export default function App() {
   );
 
   useEffect(() => {
-    // Initialize DB on boot
     initDB().catch(console.error);
-
-    // Check if model file exists on device
     checkModelExists().then((exists) => {
       if (exists) setHasDownloadedModel(true);
     }).catch(console.error);
   }, []);
 
   if (!permission) {
-    return <View />;
+    return <View style={styles.container} />;
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>We need your permission to show the camera</Text>
-        <Button onPress={requestPermission} title="grant permission" />
+      <View style={styles.permissionContainer}>
+        <View style={styles.permissionCard}>
+          <Text style={styles.permissionIcon}>📷</Text>
+          <Text style={styles.permissionTitle}>Camera Access</Text>
+          <Text style={styles.permissionMessage}>
+            We need camera access to capture and analyze fruit quality.
+          </Text>
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>Allow Camera</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -72,99 +79,155 @@ export default function App() {
 
     try {
       setIsAnalyzing(true);
-      
       const photo = await cameraRef.current.takePictureAsync();
       if (!photo) throw new Error("Did not capture photo");
 
-      // 1. Resize/Compress
       const compressedUri = await prepareImageForInference(photo.uri);
-
-      // 2. Local AI Inference (multimodal: image + text via LiteRT-LM)
       const responseText = await analyzeImage(compressedUri, SYSTEM_PROMPT);
       const result = parseLlmResponse(responseText);
-
-      // 3. Save to History DB
       await insertScan(photo.uri, result);
 
-      // 4. Navigate to details
       router.push({
         pathname: '/result',
         params: { result: JSON.stringify(result), imageUri: photo.uri }
       });
-
     } catch (error) {
       console.error(error);
-      alert("Analysis failed. Ensure the model is correct and running.");
+      alert("Analysis failed. Ensure the model is loaded and try again.");
     } finally {
       setIsAnalyzing(false);
     }
   }
 
+  const modelReady = hasDownloadedModel && modelLoaded;
+
   return (
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
-      <View style={styles.overlay}>
-          {!hasDownloadedModel && (
-            <TouchableOpacity
-              style={styles.importButton}
-              onPress={handleImportModel}
-              disabled={isImporting}
-            >
-              {isImporting ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.importText}>Import Gemma 4 Model</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          {hasDownloadedModel && !modelLoaded && (
-            <View style={styles.loadingModel}>
-               <ActivityIndicator size="small" color="#FFF" />
-               <Text style={styles.loadingText}>Loading Gemma 4 Model...</Text>
-            </View>
-          )}
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.button} onPress={toggleCameraFacing}>
-              <Text style={styles.text}>Flip</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.captureButton, isAnalyzing && styles.disabledButton]} 
-              onPress={takePictureAndAnalyze}
-              disabled={isAnalyzing || !modelLoaded}
-            >
-              {isAnalyzing ? (
-                <ActivityIndicator size="large" color="#fff" />
-              ) : (
-                <Text style={styles.captureText}>Analyze</Text>
-              )}
-            </TouchableOpacity>
+      {/* Scanning frame overlay */}
+      <View style={styles.overlay}>
+        <View style={styles.scanFrame}>
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
+        </View>
+      </View>
+
+      {/* Top status bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
+        {!hasDownloadedModel && (
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={handleImportModel}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.importText}>Import Gemma 4 Model</Text>
+            )}
+          </TouchableOpacity>
+        )}
+        {hasDownloadedModel && !modelLoaded && (
+          <View style={styles.statusPill}>
+            <ActivityIndicator size="small" color="#FFF" />
+            <Text style={styles.statusText}>Initializing Gemma 4...</Text>
           </View>
+        )}
+        {modelReady && (
+          <View style={[styles.statusPill, styles.statusReady]}>
+            <View style={styles.readyDot} />
+            <Text style={styles.statusText}>Model Ready</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Bottom controls */}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}>
+        <TouchableOpacity style={styles.sideButton} onPress={toggleCameraFacing}>
+          <Text style={styles.sideButtonIcon}>↻</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.captureButton,
+            !modelReady && styles.captureDisabled,
+            isAnalyzing && styles.captureAnalyzing,
+          ]}
+          onPress={takePictureAndAnalyze}
+          disabled={isAnalyzing || !modelReady}
+        >
+          {isAnalyzing ? (
+            <ActivityIndicator size="large" color="#fff" />
+          ) : (
+            <View style={styles.captureInner} />
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.sideButton} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
-  message: { textAlign: 'center', paddingBottom: 10, color: 'white' },
+  container: { flex: 1, backgroundColor: '#000' },
   camera: { flex: 1 },
-  overlay: {
-    position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
-    backgroundColor: 'transparent', flexDirection: 'column', justifyContent: 'space-between', padding: 20, paddingBottom: 40,
-  },
+
+  // Permission screen
+  permissionContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  permissionCard: { backgroundColor: '#1C1C1E', borderRadius: 24, padding: 32, alignItems: 'center', width: '100%' },
+  permissionIcon: { fontSize: 48, marginBottom: 16 },
+  permissionTitle: { fontSize: 22, fontWeight: '700', color: '#FFF', marginBottom: 8 },
+  permissionMessage: { fontSize: 16, color: '#8E8E93', textAlign: 'center', lineHeight: 24, marginBottom: 24 },
+  permissionButton: { backgroundColor: '#007AFF', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 14 },
+  permissionButtonText: { color: '#FFF', fontSize: 17, fontWeight: '600' },
+
+  // Scan frame
+  overlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center' },
+  scanFrame: { width: 260, height: 260, position: 'relative' },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: 'rgba(255,255,255,0.7)' },
+  cornerTL: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 12 },
+  cornerTR: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 12 },
+  cornerBL: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 12 },
+  cornerBR: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 12 },
+
+  // Top bar
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 20 },
   importButton: {
-    backgroundColor: '#007AFF', padding: 16, borderRadius: 12, alignItems: 'center', alignSelf: 'center', marginTop: 60, paddingHorizontal: 24,
+    backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  importText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  loadingModel: {
-    backgroundColor: 'rgba(0,0,0,0.6)', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginTop: 40,
+  importText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  statusPill: {
+    backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 8, paddingHorizontal: 16,
+    borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  loadingText: { color: '#FFF', marginLeft: 8, fontWeight: '600' },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end', marginBottom: 40 },
-  button: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 15, borderRadius: 30 },
-  text: { fontSize: 18, fontWeight: 'bold', color: 'white' },
-  captureButton: { backgroundColor: '#007AFF', padding: 20, borderRadius: 50, width: 100, height: 100, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'white' },
-  disabledButton: { backgroundColor: '#555' },
-  captureText: { fontSize: 18, fontWeight: 'bold', color: 'white' }
+  statusReady: { backgroundColor: 'rgba(52,199,89,0.25)' },
+  statusText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  readyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
+
+  // Bottom bar
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  sideButton: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sideButtonIcon: { fontSize: 24, color: '#FFF', fontWeight: '300' },
+  captureButton: {
+    width: 80, height: 80, borderRadius: 40, borderWidth: 4,
+    borderColor: '#FFF', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  captureInner: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF',
+  },
+  captureDisabled: { borderColor: 'rgba(255,255,255,0.3)' },
+  captureAnalyzing: { borderColor: '#007AFF', backgroundColor: 'rgba(0,122,255,0.15)' },
 });
