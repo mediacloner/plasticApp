@@ -47,20 +47,13 @@ const responseText = await analyzeImage(imageUri, prompt);
 
 Download `gemma-4-E4B-it.litertlm` from [HuggingFace](https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm) (requires Gemma license acceptance).
 
-Rename and push to the device's Download folder (no root required):
-```bash
-adb push gemma-4-E4B-it.litertlm /sdcard/Download/gemma4-e4b.litertlm
-```
+Transfer the model file to your Android device (e.g. via USB, cloud storage, or direct download in a browser).
 
-On the next app launch, the model is automatically detected in `/sdcard/Download/` and copied into the app's private documents directory. This avoids `Permission denied` errors from trying to write directly to `/data/data/...`.
+Then open the app and tap **"Import Gemma 4 Model"** — a file picker will open. Select the `.litertlm` file and the app copies it into its private storage automatically.
 
-> **Note:** Do NOT use `adb push` to `/data/data/...` or `adb shell run-as ... cp` — both require root or fail due to sandbox restrictions. The `/sdcard/Download/` approach works on all devices.
+> **Note:** Direct filesystem access to `/sdcard/Download/` is blocked by Android's scoped storage. The app uses `expo-document-picker` which goes through Android's Storage Access Framework, bypassing these restrictions.
 
-The auto-copy logic lives in `services/gemmaLocal.ts` (`checkModelExists`). The lookup order is:
-1. App documents dir (`FileSystem.documentDirectory + 'gemma4-e4b.litertlm'`) — used directly if found
-2. `/sdcard/Download/gemma4-e4b.litertlm` — copied to app documents dir, then used
-
-Once copied, the sideloaded file in `/sdcard/Download/` can be deleted to free storage.
+The import logic lives in `services/gemmaLocal.ts` (`importModelFromDevice`).
 
 ### 2. Android build config
 

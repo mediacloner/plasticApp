@@ -7,6 +7,7 @@ import { useLiteRtLm } from '../../modules/litert-lm';
 import { prepareImageForInference } from '../../utils/image';
 import {
   checkModelExists,
+  importModelFromDevice,
   parseLlmResponse,
   getModelPath,
   SYSTEM_PROMPT
@@ -18,6 +19,7 @@ export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [hasDownloadedModel, setHasDownloadedModel] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
 
@@ -47,6 +49,18 @@ export default function App() {
         <Button onPress={requestPermission} title="grant permission" />
       </View>
     );
+  }
+
+  async function handleImportModel() {
+    setIsImporting(true);
+    try {
+      const success = await importModelFromDevice();
+      if (success) setHasDownloadedModel(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   function toggleCameraFacing() {
@@ -90,7 +104,20 @@ export default function App() {
     <View style={styles.container}>
       <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
       <View style={styles.overlay}>
-          {(!modelLoaded || !hasDownloadedModel) && (
+          {!hasDownloadedModel && (
+            <TouchableOpacity
+              style={styles.importButton}
+              onPress={handleImportModel}
+              disabled={isImporting}
+            >
+              {isImporting ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.importText}>Import Gemma 4 Model</Text>
+              )}
+            </TouchableOpacity>
+          )}
+          {hasDownloadedModel && !modelLoaded && (
             <View style={styles.loadingModel}>
                <ActivityIndicator size="small" color="#FFF" />
                <Text style={styles.loadingText}>Loading Gemma 4 Model...</Text>
@@ -126,6 +153,10 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
     backgroundColor: 'transparent', flexDirection: 'column', justifyContent: 'space-between', padding: 20, paddingBottom: 40,
   },
+  importButton: {
+    backgroundColor: '#007AFF', padding: 16, borderRadius: 12, alignItems: 'center', alignSelf: 'center', marginTop: 60, paddingHorizontal: 24,
+  },
+  importText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   loadingModel: {
     backgroundColor: 'rgba(0,0,0,0.6)', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginTop: 40,
   },

@@ -3486,6 +3486,11 @@ expo-constants@~18.0.12, expo-constants@~18.0.13:
     "@expo/config" "~12.0.13"
     "@expo/env" "~2.0.8"
 
+expo-document-picker@^55.0.11:
+  version "55.0.11"
+  resolved "https://registry.yarnpkg.com/expo-document-picker/-/expo-document-picker-55.0.11.tgz#aee00513d22c61df78315400e211ba1420e528bb"
+  integrity sha512-0po1UceUMKzHOOppXN5y35KXhF2zQN91cje/yxyoJaTgZPPFM7VZ+0Z4xd1JiO1WTbB+w6mb21RaPWriit/67w==
+
 expo-file-system@~19.0.21:
   version "19.0.21"
   resolved "https://registry.yarnpkg.com/expo-file-system/-/expo-file-system-19.0.21.tgz#e96a68107fb629cf0dd1906fe7b46b566ff13e10"
