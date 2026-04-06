@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { FruitAnalysisResult } from './types';
 
 // The system prompt as requested in the proposal
@@ -16,59 +17,59 @@ Evaluate the following criteria:
 
 Return ONLY valid JSON with this structure:
 {
-  "fruit": "string — fruit name and variety",
+  "fruit": "string",
   "status": "GOOD | ACCEPTABLE | BAD",
   "score": "number 1-10",
   "color_analysis": "string",
   "surface_analysis": "string",
   "shape_analysis": "string",
-  "defects": ["array of strings"],
+  "defects": ["string"],
   "ripeness": "string",
   "recommendation": "string",
   "confidence": "number 0-1"
 }`;
 
-/**
- * Initializes the MediaPipe task runner or pulls the Gemma model.
- * In a real environment, this requires react-native-llm-mediapipe
- * and loading a quantized .bin asset file from the bundle.
- */
-export const initializeModel = async (): Promise<boolean> => {
-  // TODO: Use MediaPipe LLM Inference bindings here
-  console.log("Model loading logic to be implemented dynamically via native module...");
-  
-  // Simulate load time
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return true; 
+export const MODEL_FILENAME = 'gemma4-e4b.litertlm';
+
+export const getModelPath = () => {
+    if (!FileSystem.documentDirectory) {
+        throw new Error("FileSystem.documentDirectory is null! Native module hasn't loaded.");
+    }
+    return FileSystem.documentDirectory + MODEL_FILENAME;
 };
 
 /**
- * Sends the image to the local on-device Gemma 4 instance.
+ * Checks if the Gemma 4 model file exists on device.
  */
-export const analyzeFruitImageLocal = async (localImageUri: string): Promise<FruitAnalysisResult> => {
-  console.log("Sending to Gemma local model...", localImageUri);
-  
-  // =========================================================
-  // TODO: Implement the actual MediaPipe LLM bridging logic
-  // e.g., const res = await nativeLlm.generate(SYSTEM_PROMPT, imageBuffer);
-  // =========================================================
-  
-  // For UI development purposes, we mock a response after a 3s delay
-  // This simulates the expected inference delay for Gemma 4 E4B on a mobile GPU
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
-  const mockResponse: FruitAnalysisResult = {
-    fruit: "Apple (Red Delicious)",
-    status: "GOOD",
-    score: 8,
-    color_analysis: "Uniform deep red with minor green patches near stem — consistent with variety",
-    surface_analysis: "Smooth skin, firm to appearance, natural wax bloom present",
-    shape_analysis: "Symmetrical, typical elongated shape for Red Delicious",
-    defects: ["Minor stem bruise (cosmetic only)"],
-    ripeness: "Optimal eating ripeness",
-    recommendation: "Eat within 3-5 days or refrigerate for up to 2 weeks",
-    confidence: 0.92
-  };
-  
-  return mockResponse;
+export const checkModelExists = async (): Promise<boolean> => {
+  try {
+    const path = getModelPath();
+    const fileInfo = await FileSystem.getInfoAsync(path);
+    
+    if (!fileInfo.exists) {
+      console.warn(
+        `⚠️ Model not found at ${getModelPath()}.\n` +
+        `Download gemma-4-E4B-it.litertlm from HuggingFace and push it to the device:\n` +
+        `  adb push gemma-4-E4B-it.litertlm /sdcard/Download/\n` +
+        `Then copy it to the app documents directory, or update getModelPath() to point to the file.`
+      );
+      return false;
+    } else {
+      console.log("Model found at", getModelPath());
+    }
+    
+    return true; 
+  } catch (err) {
+    console.error("Failed to download or locate Gemma 4 model", err);
+    return false;
+  }
+};
+
+/**
+ * Helper to parse the raw text output from the LLM into our JSON typescript object
+ */
+export const parseLlmResponse = (responseText: string): FruitAnalysisResult => {
+    // We strip any markdown formatting Gemma might inject around the JSON block
+    const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJsonStr);
 };

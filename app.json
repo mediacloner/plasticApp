@@ -1,15 +1,16 @@
 {
   "expo": {
-    "name": "tmp_app",
-    "slug": "tmp_app",
+    "name": "Fruit Quality Inspector",
+    "slug": "fruitApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "tmpapp",
+    "scheme": "fruitapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "mediacloner.fruitApp"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "mediacloner.fruitApp"
     },
     "web": {
       "output": "static",

@@ -30,15 +30,13 @@ export const insertScan = async (
   const result = await db.runAsync(
     `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at) 
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      analysis.fruit,
-      analysis.status,
-      analysis.score,
-      analysis.confidence,
-      imageUri,
-      JSON.stringify(analysis),
-      new Date().toISOString()
-    ]
+    analysis.fruit,
+    analysis.status,
+    analysis.score,
+    analysis.confidence,
+    imageUri,
+    JSON.stringify(analysis),
+    new Date().toISOString()
   );
   
   return result.lastInsertRowId;
