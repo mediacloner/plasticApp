@@ -26,7 +26,7 @@ export default function App() {
   const insets = useSafeAreaInsets();
 
   // LiteRT-LM native module for Gemma 4 on-device inference
-  const { analyzeImage, isLoaded: modelLoaded } = useLiteRtLm(
+  const { analyzeImage, isLoaded: modelLoaded, progress } = useLiteRtLm(
     hasDownloadedModel ? getModelPath() : null
   );
 
@@ -150,21 +150,31 @@ export default function App() {
           <Text style={styles.sideButtonIcon}>↻</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.captureButton,
-            !modelReady && styles.captureDisabled,
-            isAnalyzing && styles.captureAnalyzing,
-          ]}
-          onPress={takePictureAndAnalyze}
-          disabled={isAnalyzing || !modelReady}
-        >
-          {isAnalyzing ? (
-            <ActivityIndicator size="large" color="#fff" />
-          ) : (
-            <View style={styles.captureInner} />
+        <View style={styles.captureArea}>
+          {isAnalyzing && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
+              </View>
+              <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+            </View>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.captureButton,
+              !modelReady && styles.captureDisabled,
+              isAnalyzing && styles.captureAnalyzing,
+            ]}
+            onPress={takePictureAndAnalyze}
+            disabled={isAnalyzing || !modelReady}
+          >
+            {isAnalyzing ? (
+              <ActivityIndicator size="large" color="#fff" />
+            ) : (
+              <View style={styles.captureInner} />
+            )}
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.sideButton} />
       </View>
@@ -220,6 +230,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   sideButtonIcon: { fontSize: 24, color: '#FFF', fontWeight: '300' },
+  captureArea: { alignItems: 'center' },
+  progressContainer: { alignItems: 'center', marginBottom: 12 },
+  progressBarBg: {
+    width: 120, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%', borderRadius: 3, backgroundColor: '#34C759',
+  },
+  progressText: { color: '#FFF', fontSize: 13, fontWeight: '600', marginTop: 4 },
   captureButton: {
     width: 80, height: 80, borderRadius: 40, borderWidth: 4,
     borderColor: '#FFF', alignItems: 'center', justifyContent: 'center',

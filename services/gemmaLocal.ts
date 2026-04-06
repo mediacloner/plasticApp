@@ -30,7 +30,7 @@ Return ONLY valid JSON with this structure:
   "confidence": "number 0-1"
 }`;
 
-export const MODEL_FILENAME = 'gemma4-e2b.litertlm';
+export const MODEL_FILENAME = 'gemma4-e4b.litertlm';
 
 export const getModelPath = () => {
     if (!FileSystem.documentDirectory) {

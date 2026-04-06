@@ -3,10 +3,19 @@ import { FruitAnalysisResult, ScanRecord, FruitStatus } from './types';
 
 const DB_NAME = 'fruitinspector.db';
 
+let db: SQLite.SQLiteDatabase | null = null;
+
+function getDb(): SQLite.SQLiteDatabase {
+  if (!db) {
+    db = SQLite.openDatabaseSync(DB_NAME);
+  }
+  return db;
+}
+
 export const initDB = async (): Promise<void> => {
-  const db = await SQLite.openDatabaseSync(DB_NAME);
-  
-  await db.execAsync(`
+  const database = getDb();
+
+  await database.execAsync(`
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS scans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,10 +34,10 @@ export const insertScan = async (
   imageUri: string,
   analysis: FruitAnalysisResult
 ): Promise<number> => {
-  const db = await SQLite.openDatabaseSync(DB_NAME);
-  
-  const result = await db.runAsync(
-    `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at) 
+  const database = getDb();
+
+  const result = await database.runAsync(
+    `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     analysis.fruit,
     analysis.status,
@@ -38,17 +47,17 @@ export const insertScan = async (
     JSON.stringify(analysis),
     new Date().toISOString()
   );
-  
+
   return result.lastInsertRowId;
 };
 
 export const getScanHistory = async (): Promise<ScanRecord[]> => {
-  const db = await SQLite.openDatabaseSync(DB_NAME);
-  const allRows = await db.getAllAsync<ScanRecord>('SELECT * FROM scans ORDER BY scanned_at DESC');
+  const database = getDb();
+  const allRows = await database.getAllAsync<ScanRecord>('SELECT * FROM scans ORDER BY scanned_at DESC');
   return allRows;
 };
 
 export const clearHistory = async (): Promise<void> => {
-  const db = await SQLite.openDatabaseSync(DB_NAME);
-  await db.execAsync('DELETE FROM scans;');
+  const database = getDb();
+  await database.execAsync('DELETE FROM scans;');
 };
