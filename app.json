@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "Fruit Quality Inspector",
-    "slug": "fruitApp",
+    "name": "Plastic Identifier",
+    "slug": "plasticApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fruitapp",
+    "scheme": "plasticapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "mediacloner.fruitApp"
+      "bundleIdentifier": "mediacloner.plasticApp"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "mediacloner.fruitApp"
+      "package": "mediacloner.plasticApp"
     },
     "web": {
       "output": "static",

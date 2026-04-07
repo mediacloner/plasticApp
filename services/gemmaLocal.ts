@@ -1,33 +1,55 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as DocumentPicker from 'expo-document-picker';
-import { FruitAnalysisResult } from './types';
+import { PlasticScanResult } from './types';
 
-export const SYSTEM_PROMPT = `You are a fruit quality inspection system.
-Analyze the provided image of a fruit and return a JSON assessment.
+export const SYSTEM_PROMPT = `You are a plastic material identification and recyclability assessment system.
+Analyze the provided image and identify ALL distinct plastic items visible. For each item, provide its approximate position in the image as a percentage (0-100) from top-left corner.
 
-Evaluate the following criteria:
-1. Identify the fruit type and variety if possible
-2. Assess color uniformity and appropriateness for the variety
-3. Examine surface texture for damage, dehydration, or decay
-4. Check shape and structural integrity
-5. Identify any defects: bruises, mold, cuts, insect damage
-6. Estimate ripeness stage
-7. Provide an overall quality score (1-10) and status (GOOD|ACCEPTABLE|BAD)
-8. Give a storage or consumption recommendation
+For each plastic item found, evaluate:
+1. Identify the plastic type and resin identification code (RIC 1-7) if visible
+2. Assess the color and transparency of the plastic
+3. Examine surface texture, markings, and any recycling symbols
+4. Check shape and form factor (bottle, container, film, foam, etc.)
+5. Identify any contaminants: labels, food residue, mixed materials, degradation
+6. Estimate recyclability based on type and condition
+7. Provide an overall recyclability score (1-10) and status (RECYCLABLE|CONDITIONAL|NON_RECYCLABLE)
+8. Give a disposal or recycling recommendation
+
+Common plastic types:
+- PET (1): Clear bottles, food containers
+- HDPE (2): Milk jugs, detergent bottles
+- PVC (3): Pipes, window frames
+- LDPE (4): Plastic bags, squeeze bottles
+- PP (5): Yogurt cups, bottle caps
+- PS (6): Styrofoam, disposable cutlery
+- Other (7): Mixed/multilayer plastics
 
 Return ONLY valid JSON with this structure:
 {
-  "fruit": "string",
-  "status": "GOOD | ACCEPTABLE | BAD",
-  "score": "number 1-10",
-  "color_analysis": "string",
-  "surface_analysis": "string",
-  "shape_analysis": "string",
-  "defects": ["string"],
-  "ripeness": "string",
-  "recommendation": "string",
-  "confidence": "number 0-1"
-}`;
+  "items": [
+    {
+      "label": 1,
+      "plastic_type": "string (e.g. PET #1, HDPE #2)",
+      "resin_code": "string (1-7 or unknown)",
+      "status": "RECYCLABLE | CONDITIONAL | NON_RECYCLABLE",
+      "score": "number 1-10",
+      "color_analysis": "string",
+      "surface_analysis": "string",
+      "shape_analysis": "string",
+      "contaminants": ["string"],
+      "recyclability": "string",
+      "recommendation": "string",
+      "confidence": "number 0-1",
+      "position": {
+        "x": "number 0-100 (percentage from left edge)",
+        "y": "number 0-100 (percentage from top edge)"
+      }
+    }
+  ],
+  "summary": "string (brief overview of all items found and overall recycling guidance)"
+}
+
+Number each item starting from 1. Position should point to the approximate center of each plastic item in the image.`;
 
 export interface InstalledModel {
   filename: string;
@@ -124,7 +146,7 @@ export const getModelShortName = (filename: string): string => {
   return match ? match[0].toUpperCase() : filename.replace('.litertlm', '');
 };
 
-export const parseLlmResponse = (responseText: string): FruitAnalysisResult => {
+export const parseLlmResponse = (responseText: string): PlasticScanResult => {
   const cleanJsonStr = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
   return JSON.parse(cleanJsonStr);
 };

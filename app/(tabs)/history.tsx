@@ -19,9 +19,9 @@ export default function HistoryScreen() {
   );
 
   const renderItem = ({ item }: { item: ScanRecord }) => {
-    let statusColor = '#34C759';
-    if (item.status === 'ACCEPTABLE') statusColor = '#FF9500';
-    if (item.status === 'BAD') statusColor = '#FF3B30';
+    let statusColor = '#4CAF50';
+    if (item.status === 'CONDITIONAL') statusColor = '#FF9500';
+    if (item.status === 'NON_RECYCLABLE') statusColor = '#FF3B30';
 
     return (
       <TouchableOpacity
@@ -42,24 +42,24 @@ export default function HistoryScreen() {
       >
         <Image source={{ uri: item.image_uri }} style={styles.thumbnail} />
         <View style={styles.cardContent}>
-          <Text style={styles.fruitName}>{item.fruit_name}</Text>
+          <Text style={styles.plasticName} numberOfLines={1}>{item.plastic_type}</Text>
           <Text style={styles.date}>{new Date(item.scanned_at).toLocaleDateString()}</Text>
 
           <View style={styles.badgeRow}>
             <View style={[styles.badge, { backgroundColor: statusColor }]}>
-              <Text style={styles.badgeText}>{item.status}</Text>
+              <Text style={styles.badgeText}>{item.status.replace('_', ' ')}</Text>
             </View>
             <Text style={styles.scoreText}>{item.score}/10</Text>
+            <View style={styles.itemCountPill}>
+              <Text style={styles.itemCountText}>{item.item_count} item{item.item_count !== 1 ? 's' : ''}</Text>
+            </View>
             {!!item.model_name && (
               <Text style={styles.metaText}>{item.model_name}</Text>
-            )}
-            {!!item.processing_time_ms && (
-              <Text style={styles.metaText}>{Math.round(item.processing_time_ms / 1000)}s</Text>
             )}
           </View>
         </View>
 
-        <Text style={styles.chevron}>›</Text>
+        <Text style={styles.chevron}>&rsaquo;</Text>
       </TouchableOpacity>
     );
   };
@@ -68,10 +68,10 @@ export default function HistoryScreen() {
     <View style={styles.container}>
       {scans.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🍎</Text>
+          <Text style={styles.emptyIcon}>&#x267B;</Text>
           <Text style={styles.emptyTitle}>No scans yet</Text>
           <Text style={styles.emptySubtitle}>
-            Point your camera at a fruit and tap analyze to get started.
+            Point your camera at plastic items and tap analyze to get started.
           </Text>
         </View>
       ) : (
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 14,
   },
-  fruitName: {
+  plasticName: {
     fontSize: 17,
     fontWeight: '600',
     color: '#1C1C1E',
@@ -143,7 +143,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
-    gap: 10,
+    gap: 8,
+    flexWrap: 'wrap',
   },
   badge: {
     paddingHorizontal: 10,
@@ -160,6 +161,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#3A3A3C',
+  },
+  itemCountPill: {
+    backgroundColor: 'rgba(0,188,212,0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  itemCountText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#00BCD4',
   },
   metaText: {
     fontSize: 12,

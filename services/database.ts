@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
-import { FruitAnalysisResult, ScanRecord } from './types';
+import { PlasticScanResult, ScanRecord } from './types';
 
-const DB_NAME = 'fruitinspector.db';
+const DB_NAME = 'plasticinspector.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -19,10 +19,11 @@ export const initDB = async (): Promise<void> => {
     PRAGMA journal_mode = WAL;
     CREATE TABLE IF NOT EXISTS scans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      fruit_name TEXT NOT NULL,
+      plastic_type TEXT NOT NULL,
       status TEXT NOT NULL,
       score INTEGER NOT NULL,
       confidence REAL NOT NULL,
+      item_count INTEGER NOT NULL DEFAULT 1,
       image_uri TEXT NOT NULL,
       analysis_json TEXT NOT NULL,
       scanned_at DATETIME NOT NULL,
@@ -30,31 +31,40 @@ export const initDB = async (): Promise<void> => {
       processing_time_ms INTEGER NOT NULL DEFAULT 0
     );
   `);
-
-  // Migrate: add columns if they don't exist (ALTER TABLE is a no-op if column exists in SQLite 3.35+)
-  try {
-    await database.execAsync(`ALTER TABLE scans ADD COLUMN model_name TEXT NOT NULL DEFAULT '';`);
-  } catch (_) { /* column already exists */ }
-  try {
-    await database.execAsync(`ALTER TABLE scans ADD COLUMN processing_time_ms INTEGER NOT NULL DEFAULT 0;`);
-  } catch (_) { /* column already exists */ }
 };
 
 export const insertScan = async (
   imageUri: string,
-  analysis: FruitAnalysisResult,
+  analysis: PlasticScanResult,
   modelName: string,
   processingTimeMs: number
 ): Promise<number> => {
   const database = getDb();
 
+  const items = analysis.items;
+  const primaryType = items.length > 0
+    ? items.map(i => i.plastic_type).join(', ')
+    : 'Unknown';
+  const avgScore = items.length > 0
+    ? Math.round(items.reduce((sum, i) => sum + i.score, 0) / items.length)
+    : 0;
+  const avgConfidence = items.length > 0
+    ? items.reduce((sum, i) => sum + i.confidence, 0) / items.length
+    : 0;
+  const worstStatus = items.reduce((worst, i) => {
+    if (i.status === 'NON_RECYCLABLE') return 'NON_RECYCLABLE';
+    if (i.status === 'CONDITIONAL' && worst !== 'NON_RECYCLABLE') return 'CONDITIONAL';
+    return worst;
+  }, items[0]?.status ?? 'RECYCLABLE');
+
   const result = await database.runAsync(
-    `INSERT INTO scans (fruit_name, status, score, confidence, image_uri, analysis_json, scanned_at, model_name, processing_time_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    analysis.fruit,
-    analysis.status,
-    analysis.score,
-    analysis.confidence,
+    `INSERT INTO scans (plastic_type, status, score, confidence, item_count, image_uri, analysis_json, scanned_at, model_name, processing_time_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    primaryType,
+    worstStatus,
+    avgScore,
+    avgConfidence,
+    items.length,
     imageUri,
     JSON.stringify(analysis),
     new Date().toISOString(),

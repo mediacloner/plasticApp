@@ -79,7 +79,7 @@ export default function ScannerScreen() {
           <Logo size={64} />
           <Text style={styles.permissionTitle}>Camera Access</Text>
           <Text style={styles.permissionMessage}>
-            We need camera access to capture and analyze fruit quality.
+            We need camera access to capture and identify plastic materials.
           </Text>
           <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
             <Text style={styles.permissionButtonText}>Allow Camera</Text>
@@ -107,15 +107,15 @@ export default function ScannerScreen() {
       const responseText = await analyzeImage(compressedUri, SYSTEM_PROMPT);
       const processingTimeMs = Date.now() - startTime;
 
-      const result = parseLlmResponse(responseText);
+      const scanResult = parseLlmResponse(responseText);
       const modelName = getModelShortName(model.filename);
 
-      await insertScan(photo.uri, result, modelName, processingTimeMs);
+      await insertScan(photo.uri, scanResult, modelName, processingTimeMs);
 
       router.push({
         pathname: '/result',
         params: {
-          result: JSON.stringify(result),
+          result: JSON.stringify(scanResult),
           imageUri: photo.uri,
           modelName,
           processingTime: String(processingTimeMs),
@@ -142,7 +142,7 @@ export default function ScannerScreen() {
       <View style={styles.processingContainer}>
         <View style={styles.processingContent}>
           <Logo size={80} />
-          <Text style={styles.processingTitle}>Analyzing Fruit...</Text>
+          <Text style={styles.processingTitle}>Identifying Plastic...</Text>
           <Text style={styles.processingSubtitle}>Model: {shortName}</Text>
 
           <View style={styles.progressContainer}>
@@ -206,7 +206,7 @@ export default function ScannerScreen() {
 
           {/* Settings gear */}
           <TouchableOpacity style={styles.gearButton} onPress={handleOpenSettings}>
-            <Text style={styles.gearIcon}>⚙</Text>
+            <Text style={styles.gearIcon}>&#x2699;</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -217,7 +217,7 @@ export default function ScannerScreen() {
           style={styles.sideButton}
           onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
         >
-          <Text style={styles.sideButtonIcon}>↻</Text>
+          <Text style={styles.sideButtonIcon}>&#x21BB;</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -271,9 +271,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 8, paddingHorizontal: 16,
     borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  statusReady: { backgroundColor: 'rgba(52,199,89,0.25)' },
+  statusReady: { backgroundColor: 'rgba(0,188,212,0.25)' },
   statusText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  readyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34C759' },
+  readyDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00BCD4' },
   gearButton: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center', justifyContent: 'center',
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     width: 200, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)',
     overflow: 'hidden',
   },
-  progressBarFill: { height: '100%', borderRadius: 4, backgroundColor: '#34C759' },
+  progressBarFill: { height: '100%', borderRadius: 4, backgroundColor: '#00BCD4' },
   progressText: { color: '#FFF', fontSize: 18, fontWeight: '700', marginTop: 12 },
   processingHint: { color: '#555', fontSize: 13, marginTop: 32, textAlign: 'center' },
 });

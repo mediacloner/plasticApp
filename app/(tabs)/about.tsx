@@ -14,26 +14,49 @@ export default function AboutScreen() {
     >
       <View style={styles.heroSection}>
         <Logo size={100} />
-        <Text style={styles.heroTitle}>Visual Quality Inspector</Text>
+        <Text style={styles.heroTitle}>Plastic Identifier</Text>
         <Text style={styles.heroSubtitle}>
-          On-device AI fruit analysis powered by Gemma 4
+          On-device AI plastic classification powered by Gemma 4
         </Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>How It Works</Text>
         <Text style={styles.cardText}>
-          Point your camera at a fruit and tap the capture button. The Gemma 4 model
-          runs entirely on your device — no cloud, no internet required. It evaluates
-          color, shape, surface condition, and defects in seconds.
+          Point your camera at a plastic item and tap the capture button. The Gemma 4 model
+          runs entirely on your device — no cloud, no internet required. It identifies the
+          plastic type, resin code, surface condition, and recyclability in seconds.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Mobile vs. Industrial Sensors</Text>
+        <Text style={styles.cardTitle}>Resin Identification Codes</Text>
         <Text style={styles.cardText}>
-          While this app evaluates visible traits using your RGB camera, industrial
-          systems use Near-Infrared (NIR) or Hyperspectral imaging for deeper analysis.
+          Plastics are classified by their Resin Identification Code (RIC), numbered 1-7.
+          Each type has different properties and recyclability.
+        </Text>
+
+        <View style={styles.table}>
+          <View style={styles.tableHeaderRow}>
+            <Text style={[styles.tableCell, styles.tableHeaderText]}>Code</Text>
+            <Text style={[styles.tableCell, styles.tableHeaderText]}>Type</Text>
+            <Text style={[styles.tableCell, styles.tableHeaderText]}>Recyclable</Text>
+          </View>
+          <TableRow cells={['#1 PET', 'Bottles, containers', 'Widely']} />
+          <TableRow cells={['#2 HDPE', 'Jugs, detergent', 'Widely']} />
+          <TableRow cells={['#3 PVC', 'Pipes, film', 'Rarely']} />
+          <TableRow cells={['#4 LDPE', 'Bags, squeeze', 'Limited']} />
+          <TableRow cells={['#5 PP', 'Cups, caps', 'Growing']} />
+          <TableRow cells={['#6 PS', 'Styrofoam', 'Rarely']} />
+          <TableRow cells={['#7 Other', 'Mixed/multi', 'Rarely']} last />
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Mobile vs. Industrial Analysis</Text>
+        <Text style={styles.cardText}>
+          While this app identifies plastics visually using your RGB camera, industrial
+          systems use Near-Infrared (NIR) spectroscopy for precise polymer identification.
         </Text>
 
         <View style={styles.table}>
@@ -42,9 +65,9 @@ export default function AboutScreen() {
             <Text style={[styles.tableCell, styles.tableHeaderText]}>Mobile</Text>
             <Text style={[styles.tableCell, styles.tableHeaderText]}>Industrial</Text>
           </View>
-          <TableRow cells={['Hardware', 'RGB Camera', 'NIR / HSI']} />
-          <TableRow cells={['Metrics', 'Skin, Color', 'Brix, Moisture']} />
-          <TableRow cells={['Accuracy', '~85%', '>95%']} last />
+          <TableRow cells={['Hardware', 'RGB Camera', 'NIR / FTIR']} />
+          <TableRow cells={['Identifies', 'Visual cues', 'Polymer type']} />
+          <TableRow cells={['Accuracy', '~80%', '>95%']} last />
         </View>
       </View>
 
@@ -97,7 +120,7 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: { alignItems: 'center', marginTop: 16 },
-  footerPill: { backgroundColor: 'rgba(0,122,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  footerPillText: { fontSize: 14, fontWeight: '600', color: '#007AFF' },
+  footerPill: { backgroundColor: 'rgba(0,188,212,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  footerPillText: { fontSize: 14, fontWeight: '600', color: '#00BCD4' },
   footerNote: { fontSize: 13, color: '#C7C7CC', marginTop: 10, textAlign: 'center' },
 });
