@@ -30,6 +30,14 @@ export const initDB = async (): Promise<void> => {
       processing_time_ms INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  // Migrate: add columns if they don't exist (ALTER TABLE is a no-op if column exists in SQLite 3.35+)
+  try {
+    await database.execAsync(`ALTER TABLE scans ADD COLUMN model_name TEXT NOT NULL DEFAULT '';`);
+  } catch (_) { /* column already exists */ }
+  try {
+    await database.execAsync(`ALTER TABLE scans ADD COLUMN processing_time_ms INTEGER NOT NULL DEFAULT 0;`);
+  } catch (_) { /* column already exists */ }
 };
 
 export const insertScan = async (
