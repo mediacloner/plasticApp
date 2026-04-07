@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, Text, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Logo from '../../components/Logo';
 
 export default function AboutScreen() {
   const insets = useSafeAreaInsets();
@@ -12,7 +13,7 @@ export default function AboutScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.heroSection}>
-        <Text style={styles.heroEmoji}>🔬</Text>
+        <Logo size={100} />
         <Text style={styles.heroTitle}>Visual Quality Inspector</Text>
         <Text style={styles.heroSubtitle}>
           On-device AI fruit analysis powered by Gemma 4

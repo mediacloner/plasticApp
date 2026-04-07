@@ -17,6 +17,7 @@ import {
   type InstalledModel,
 } from '../../services/gemmaLocal';
 import { insertScan, initDB } from '../../services/database';
+import Logo from '../../components/Logo';
 
 export default function ScannerScreen() {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -75,7 +76,7 @@ export default function ScannerScreen() {
     return (
       <View style={styles.permissionContainer}>
         <View style={styles.permissionCard}>
-          <Text style={styles.permissionIcon}>📷</Text>
+          <Logo size={64} />
           <Text style={styles.permissionTitle}>Camera Access</Text>
           <Text style={styles.permissionMessage}>
             We need camera access to capture and analyze fruit quality.
@@ -140,7 +141,7 @@ export default function ScannerScreen() {
     return (
       <View style={styles.processingContainer}>
         <View style={styles.processingContent}>
-          <Text style={styles.processingEmoji}>🍎</Text>
+          <Logo size={80} />
           <Text style={styles.processingTitle}>Analyzing Fruit...</Text>
           <Text style={styles.processingSubtitle}>Model: {shortName}</Text>
 
